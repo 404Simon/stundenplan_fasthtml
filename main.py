@@ -15,6 +15,14 @@ function decrement_weeks_from_now() {
     weeks.value = parseInt(weeks.value) - 1;
     weeks.dispatchEvent(new Event('change'));
 }
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'k' || e.key === 'ArrowLeft') {
+        decrement_weeks_from_now();
+    } else if (e.key === 'j' || e.key === 'ArrowRight') {
+        increment_weeks_from_now();
+    }
+});
 """)
 
 app = FastHTML(hdrs=(tailwind, pico, increment_decrement_script))
