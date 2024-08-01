@@ -22,6 +22,10 @@ document.addEventListener('keydown', function(e) {
         decrement_weeks_from_now();
     } else if (e.key === 'j' || e.key === 'ArrowRight') {
         increment_weeks_from_now();
+    } else if (e.key === ":") {
+        var weeks = document.getElementById('weeks_from_now');
+        weeks.focus();
+        weeks.select();
     }
 });
 """)
@@ -47,7 +51,7 @@ def WeekTable():
         Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
         Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
         Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
-        cls="m-4",
+        cls="p-4",
         id="stundenplan"
     )
 
