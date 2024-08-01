@@ -5,23 +5,21 @@ from datetime import datetime
 tailwind = Script(src="https://cdn.tailwindcss.com"),
 pico = Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"),
 increment_decrement_script = Script("""
-function increment_weeks_from_now() {
+function modify_weeks_from_now(value) {
     var weeks = document.getElementById('weeks_from_now');
-    weeks.value = parseInt(weeks.value) + 1;
-    weeks.dispatchEvent(new Event('change'));
-}
-
-function decrement_weeks_from_now() {
-    var weeks = document.getElementById('weeks_from_now');
-    weeks.value = parseInt(weeks.value) - 1;
+    if (weeks.value == "") {
+        weeks.value = 0;
+        weeks.blur();
+    }
+    weeks.value = parseInt(weeks.value) + value;
     weeks.dispatchEvent(new Event('change'));
 }
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'k' || e.key === 'ArrowLeft') {
-        decrement_weeks_from_now();
+        modify_weeks_from_now(-1);
     } else if (e.key === 'j' || e.key === 'ArrowRight') {
-        increment_weeks_from_now();
+        modify_weeks_from_now(1);
     } else if (e.key === ":") {
         var weeks = document.getElementById('weeks_from_now');
         weeks.focus();
@@ -57,9 +55,9 @@ def WeekTable():
 
 def Navigation(weeks_from_now=0):
     return Div(
-        Button("<", cls="w-6 h-8", onclick="decrement_weeks_from_now()"),
-        Input(type="number", value=weeks_from_now, id="weeks_from_now", style="width: 4rem; height: 2rem; text-align: center", hx_trigger="change", hx_post="/table", hx_target="#stundenplan", hx_swap="outerHTML"),
-        Button(">", cls="w-6 h-8", onclick="increment_weeks_from_now()"),
+        Button("<", cls="w-6 h-8", onclick="modify_weeks_from_now(-1)"),
+        Input(type="number", value=weeks_from_now, id="weeks_from_now", style="width: 4rem; height: 2rem; text-align: center", hx_trigger="change", hx_post="/table", hx_target="#stundenplan", hx_swap="outerHTML", cls="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"),
+        Button(">", cls="w-6 h-8", onclick="modify_weeks_from_now(1)"),
         cls="flex justify-center space-x-2"
     )
 
