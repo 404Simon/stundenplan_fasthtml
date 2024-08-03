@@ -1,6 +1,7 @@
 from fasthtml.common import *
-import random
-from datetime import datetime
+from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from models import Appointment
 
 tailwind = Script(src="https://cdn.tailwindcss.com"),
 pico = Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"),
@@ -39,19 +40,56 @@ async def get():
 @rt("/table")
 async def post(weeks_from_now: int):
     print(f"Weeks from now: {weeks_from_now}")
-    return WeekTable()
+    table = WeekTable()
+    appointment = Appointment(date = datetime(2024, 8, 2, 8, 0), start_time = datetime(2024, 8, 2, 8, 0), end_time = datetime(2024, 8, 2, 9, 0), subject = "Mathematik", room = "A123")
+    table.register_appointment(appointment)
+    return table
 
 
-def WeekTable():
-    return Table(
-        Tr(Th("Montag"), Th("Dienstag"), Th("Mittwoch"), Th("Donnerstag"), Th("Freitag")),
-        Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
-        Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
-        Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
-        Tr(random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry(), random_table_entry()),
-        cls="p-4",
-        id="stundenplan"
-    )
+@dataclass
+class WeekTable:
+    rows: list = field(default_factory=list)
+    row_minutes: int = 30
+    num_rows: int = 24 * 60 // row_minutes
+
+    def __post_init__(self):
+        for i in range(self.num_rows):
+            start_time = datetime(2000, 1, 1, 0, 0) + timedelta(minutes=i * self.row_minutes)
+            end_time = start_time + timedelta(minutes=self.row_minutes)
+            self.rows.append(TableRow(
+                start_time=start_time,
+                end_time=end_time,
+                index = i
+            ))
+
+    def __ft__(self):
+        return Table(
+            Tr(Th("Montag"), Th("Dienstag"), Th("Mittwoch"), Th("Donnerstag"), Th("Freitag")),
+            *[row for row in self.rows if row.used],
+            cls="p-4",
+            id="stundenplan"
+        )
+
+    def register_appointment(self, appointment: Appointment):
+        offsets = []
+        for row in self.rows:
+            offset = (appointment.start_time.replace(year=2000, month=1, day=1) - row.start_time.replace(year=2000, month=1, day=1)).total_seconds()
+            offsets.append((abs(offset), row))
+        offsets.sort(key=lambda x: x[0])
+        for o, row in offsets:
+            print(f"Offset: {o}, Row: {row.index}")
+        for _, row in offsets:
+            weekday = appointment.date.weekday()
+            if row.entries[weekday] is not None and row.entries[weekday].__class__ != TableEntry:
+                print(f"Registering appointment {appointment.subject} at {appointment.start_time} in row {row.index}")
+                span = int((appointment.end_time.replace(year=2000, month=1, day=1) - row.start_time.replace(year=2000, month=1, day=1)).total_seconds() / (self.row_minutes * 60))
+                row.entries[weekday] = TableEntry(appointment.start_time, appointment.end_time, appointment.subject, appointment.room, rowspan=span)
+                row.used = True
+                for i in range(1, int(span)):
+                    self.rows[row.index + i].used = True
+                    self.rows[row.index + i].entries[weekday] = None
+                break
+
 
 def Navigation(weeks_from_now=0):
     return Div(
@@ -62,21 +100,32 @@ def Navigation(weeks_from_now=0):
     )
 
 
-def TableEntry(start_time: datetime, end_time: datetime, subject: str, room: str):
+def TableEntry(start_time: datetime, end_time: datetime, subject: str, room: str, rowspan=1):
     return Td(
         Div(
             Span(start_time.strftime("%H:%M"), cls="font-bold"),
             Span(end_time.strftime(" - %H:%M")),
             Span(subject, cls="block"),
             Span(room, cls="block"),
-            cls="space-y-1"
+            cls="space-y-1",
         ),
+        rowspan=rowspan
     )
 
-def random_table_entry():
-    start_time = datetime.now().replace(hour=random.randint(8, 16), minute=random.randint(0, 59))
-    end_time = start_time.replace(hour=start_time.hour + 1)
-    return TableEntry(start_time, end_time, "Security", "A123")
+
+@dataclass
+class TableRow:
+    start_time: datetime
+    end_time: datetime
+    index: int
+    entries: list = field(default_factory=lambda: [Td() for _ in range(5)])
+    used: bool = False
+
+    def __ft__(self):
+        return Tr(*self.entries)
+
+
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
