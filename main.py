@@ -78,13 +78,13 @@ class WeekTable:
         offsets.sort(key=lambda x: x[0])
         for _, row in offsets:
             weekday = appointment.date.weekday()
-            if row.entries[weekday] is not None and row.entries[weekday].__class__ != TableEntry:
+            if row.entries[weekday] is not None and row.entries[weekday] == Td():
                 print(f"Registering appointment {appointment.subject} at {appointment.start_time} in row {row.index}")
                 intended_span = int((appointment.end_time.replace(year=2000, month=1, day=1) - row.start_time.replace(year=2000, month=1, day=1)).total_seconds() / (self.row_minutes * 60))
                 actual_span = intended_span
                 for i in range(1, int(intended_span)):
                     self.rows[row.index + i].used = True
-                    if self.rows[row.index + i].entries[weekday].__class__ != TableEntry:
+                    if self.rows[row.index + i].entries[weekday] == Td():
                         self.rows[row.index + i].entries[weekday] = None
                     else:
                         actual_span = i
