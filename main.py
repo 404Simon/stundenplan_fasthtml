@@ -41,7 +41,7 @@ async def get():
 async def post(weeks_from_now: int):
     print(f"Weeks from now: {weeks_from_now}")
     table = WeekTable()
-    appointment = Appointment(date = datetime(2024, 8, 2, 8, 0), start_time = datetime(2024, 8, 2, 8, 0), end_time = datetime(2024, 8, 2, 9, 0), subject = "Mathematik", room = "A123")
+    appointment = Appointment(date = datetime(2024, 8, 2, 8, 0), start_time = datetime(2024, 8, 2, 8, 0), end_time = datetime(2024, 8, 2, 10, 0), subject = "Mathematik", room = "A123")
     table.register_appointment(appointment)
     return table
 
@@ -76,18 +76,21 @@ class WeekTable:
             offset = (appointment.start_time.replace(year=2000, month=1, day=1) - row.start_time.replace(year=2000, month=1, day=1)).total_seconds()
             offsets.append((abs(offset), row))
         offsets.sort(key=lambda x: x[0])
-        for o, row in offsets:
-            print(f"Offset: {o}, Row: {row.index}")
         for _, row in offsets:
             weekday = appointment.date.weekday()
             if row.entries[weekday] is not None and row.entries[weekday].__class__ != TableEntry:
                 print(f"Registering appointment {appointment.subject} at {appointment.start_time} in row {row.index}")
-                span = int((appointment.end_time.replace(year=2000, month=1, day=1) - row.start_time.replace(year=2000, month=1, day=1)).total_seconds() / (self.row_minutes * 60))
-                row.entries[weekday] = TableEntry(appointment.start_time, appointment.end_time, appointment.subject, appointment.room, rowspan=span)
-                row.used = True
-                for i in range(1, int(span)):
+                intended_span = int((appointment.end_time.replace(year=2000, month=1, day=1) - row.start_time.replace(year=2000, month=1, day=1)).total_seconds() / (self.row_minutes * 60))
+                actual_span = intended_span
+                for i in range(1, int(intended_span)):
                     self.rows[row.index + i].used = True
-                    self.rows[row.index + i].entries[weekday] = None
+                    if self.rows[row.index + i].entries[weekday].__class__ != TableEntry:
+                        self.rows[row.index + i].entries[weekday] = None
+                    else:
+                        actual_span = i
+                        break
+                row.entries[weekday] = TableEntry(appointment.start_time, appointment.end_time, appointment.subject, appointment.room, rowspan=actual_span)
+                row.used = True
                 break
 
 
