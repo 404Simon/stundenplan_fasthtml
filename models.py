@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import time, date
 
 @dataclass
 class Appointment:
-    date: datetime
-    start_time: datetime
-    end_time: datetime
+    date: date
+    start_time: time
+    end_time: time
     subject: str
     room: str
 
