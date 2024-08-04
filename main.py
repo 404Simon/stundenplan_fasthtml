@@ -2,6 +2,7 @@ from fasthtml.common import *
 from datetime import time, date
 from dataclasses import dataclass, field
 from models import Appointment
+import math
 
 tailwind = Script(src="https://cdn.tailwindcss.com"),
 pico = Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"),
@@ -41,9 +42,9 @@ async def get():
 async def post(weeks_from_now: int):
     print(f"Weeks from now: {weeks_from_now}")
     table = WeekTable()
-    appointment = Appointment(date = date(2024, 8, 2), start_time = time(8), end_time = time(10), subject = "Mathematik", room = "A123")
+    appointment = Appointment(date = date(2024, 8, 2), start_time = time(8, 5), end_time = time(10), subject = "Mathematik", room = "A123")
     table.register_appointment(appointment)
-    appointment2 = Appointment(date = date(2024, 8, 2), start_time = time(8), end_time = time(10), subject = "Deutsch", room = "A123")
+    appointment2 = Appointment(date = date(2024, 8, 1), start_time = time(8), end_time = time(10), subject = "Deutsch", room = "A123")
     table.register_appointment(appointment2)
     return table
 
@@ -51,7 +52,7 @@ async def post(weeks_from_now: int):
 @dataclass
 class WeekTable:
     rows: list = field(default_factory=list)
-    row_minutes: int = 30
+    row_minutes: int = 15
     num_rows: int = 24 * 60 // row_minutes
 
     def __post_init__(self):
@@ -80,7 +81,7 @@ class WeekTable:
             weekday = appointment.date.weekday()
             if row.entries[weekday] is not None and row.entries[weekday] == Td():
                 print(f"Registering appointment {appointment.subject} at {appointment.start_time} in row {row.index}")
-                intended_span = time_diff_in_minutes(appointment.end_time, appointment.start_time) // self.row_minutes
+                intended_span = math.ceil(time_diff_in_minutes(appointment.end_time, row.start_time) / self.row_minutes)
                 actual_span = intended_span
                 for i in range(1, int(intended_span)):
                     self.rows[row.index + i].used = True
@@ -89,7 +90,7 @@ class WeekTable:
                     else:
                         actual_span = i
                         break
-                row.entries[weekday] = TableEntry(appointment.start_time, appointment.end_time, appointment.subject, appointment.room, rowspan=actual_span)
+                row.entries[weekday] = TableEntry(appointment, rowspan=actual_span)
                 row.used = True
                 break
 
@@ -103,13 +104,13 @@ def Navigation(weeks_from_now=0):
     )
 
 
-def TableEntry(start_time: time, end_time: time, subject: str, room: str, rowspan=1):
+def TableEntry(appointment: Appointment, rowspan=1):
     return Td(
         Div(
-            Span(start_time.strftime("%H:%M"), cls="font-bold"),
-            Span(end_time.strftime(" - %H:%M")),
-            Span(subject, cls="block"),
-            Span(room, cls="block"),
+            Span(appointment.start_time.strftime("%H:%M"), cls="font-bold"),
+            Span(appointment.end_time.strftime(" - %H:%M")),
+            Span(appointment.subject, cls="block"),
+            Span(appointment.room, cls="block"),
             cls="space-y-1",
         ),
         rowspan=rowspan
