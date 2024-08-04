@@ -4,39 +4,20 @@ from dataclasses import dataclass, field
 from models import Appointment
 import math
 
-tailwind = Script(src="https://cdn.tailwindcss.com"),
-pico = Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"),
-increment_decrement_script = Script("""
-function modify_weeks_from_now(value) {
-    var weeks = document.getElementById('weeks_from_now');
-    if (weeks.value == "") {
-        weeks.value = 0;
-        weeks.blur();
-    }
-    weeks.value = parseInt(weeks.value) + value;
-    weeks.dispatchEvent(new Event('change'));
-}
+tailwind = Script(src="/static/tailwind345.js"),
+pico = Link(rel="stylesheet", href="/static/pico.min.css"),
+increment_decrement_script = Script(src="/static/incr_decr.js")
+favicon = Link(type="image/png", size="32x32", rel="icon", href="/static/icons8-zeitplan-sf-black-filled-32.png")
 
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'k' || e.key === 'ArrowLeft') {
-        modify_weeks_from_now(-1);
-    } else if (e.key === 'j' || e.key === 'ArrowRight') {
-        modify_weeks_from_now(1);
-    } else if (e.key === ":") {
-        var weeks = document.getElementById('weeks_from_now');
-        weeks.focus();
-        weeks.select();
-    }
-});
-""")
-
-app = FastHTML(hdrs=(tailwind, pico, increment_decrement_script))
+app = FastHTML(hdrs=(tailwind, pico, increment_decrement_script, favicon))
+app.mount("/static", StaticFiles(directory="static"), name="static")
 rt = app.route
 
 
 @rt("/")
 async def get():
     return Title("Stundenplan"), Main(H1("Stundenplan", cls="text-5xl m-4"), Div(Navigation(), WeekTable()), cls="space-y-4")
+
 
 @rt("/table")
 async def post(weeks_from_now: int):
@@ -95,13 +76,16 @@ class WeekTable:
                 break
 
 
-def Navigation(weeks_from_now=0):
-    return Div(
-        Button("<", cls="w-6 h-8", onclick="modify_weeks_from_now(-1)"),
-        Input(type="number", value=weeks_from_now, id="weeks_from_now", style="width: 4rem; height: 2rem; text-align: center", hx_trigger="change", hx_post="/table", hx_target="#stundenplan", hx_swap="outerHTML", cls="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"),
-        Button(">", cls="w-6 h-8", onclick="modify_weeks_from_now(1)"),
-        cls="flex justify-center space-x-2"
-    )
+@dataclass
+class TableRow:
+    start_time: time
+    end_time: time
+    index: int
+    entries: list = field(default_factory=lambda: [Td() for _ in range(5)])
+    used: bool = False
+
+    def __ft__(self):
+        return Tr(*self.entries)
 
 
 def TableEntry(appointment: Appointment, rowspan=1):
@@ -117,20 +101,19 @@ def TableEntry(appointment: Appointment, rowspan=1):
     )
 
 
-@dataclass
-class TableRow:
-    start_time: time
-    end_time: time
-    index: int
-    entries: list = field(default_factory=lambda: [Td() for _ in range(5)])
-    used: bool = False
 
-    def __ft__(self):
-        return Tr(*self.entries)
+def Navigation(weeks_from_now=0):
+    return Div(
+        Button("<", cls="w-6 h-8", onclick="modify_weeks_from_now(-1)"),
+        Input(type="number", value=weeks_from_now, id="weeks_from_now", style="width: 4rem; height: 2rem; text-align: center", hx_trigger="change", hx_post="/table", hx_target="#stundenplan", hx_swap="outerHTML", cls="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"),
+        Button(">", cls="w-6 h-8", onclick="modify_weeks_from_now(1)"),
+        cls="flex justify-center space-x-2"
+    )
 
 
 def time_diff_in_minutes(start: time, end: time):
     return start.hour * 60 + start.minute - end.hour * 60 - end.minute
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
