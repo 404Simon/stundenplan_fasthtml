@@ -1,5 +1,5 @@
 from fasthtml.common import *
-from datetime import time, date
+from datetime import time, date, datetime, timedelta
 from dataclasses import dataclass, field
 from models import Appointment
 import math
@@ -16,24 +16,33 @@ rt = app.route
 
 @rt("/")
 async def get():
-    return Title("Stundenplan"), Main(H1("Stundenplan", cls="text-5xl m-4"), Div(Navigation(), WeekTable(), FoodModal(
-        [FoodListing("Asia Noodles", "coming soon"), FoodListing("Rumpsteak", "coming soon too")]
-    )), cls="space-y-4")
+    return Title("Stundenplan"), Main(H1("Stundenplan", cls="text-5xl m-4"), Div(Navigation(), WeekTable(monday = date.today() - timedelta(days=date.today().weekday()))), cls="space-y-4")
 
 
 @rt("/table")
 async def post(weeks_from_now: int):
     print(f"Weeks from now: {weeks_from_now}")
-    table = WeekTable()
-    appointment = Appointment(date = date(2024, 8, 2), start_time = time(8, 5), end_time = time(10), subject = "Mathematik", room = "A123")
+    monday = date.today() - timedelta(days=date.today().weekday()) + timedelta(weeks=weeks_from_now)
+    table = WeekTable(monday = monday)
+
+    # register dummy appointments
+    appointment = Appointment(date = monday + timedelta(days=1), start_time = time(8, 5), end_time = time(9), subject = "Mathematik", room = "A123")
     table.register_appointment(appointment)
-    appointment2 = Appointment(date = date(2024, 8, 1), start_time = time(8), end_time = time(10), subject = "Deutsch", room = "A123")
+    appointment2 = Appointment(date = monday + timedelta(days=2), start_time = time(8), end_time = time(10), subject = "Deutsch", room = "A123")
     table.register_appointment(appointment2)
     return table
 
 
+@rt("/food")
+async def get(date_str: str):
+    date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    dummy_listings = [FoodListing("Asia Noodles", "http://coming.soon"), FoodListing("Rumpsteak", "http://comming.soon")]
+    return FoodModal(date, dummy_listings)
+
+
 @dataclass
 class WeekTable:
+    monday: date
     rows: list = field(default_factory=list)
     row_minutes: int = 15
     num_rows: int = 24 * 60 // row_minutes
@@ -47,10 +56,21 @@ class WeekTable:
             ))
 
     def __ft__(self):
-        return Table(
-            Tr(Th(Span("Montag"), A(Img(src="/static/icons8-essen-90.png", cls="w-6"), onclick="modal.show()"), cls="flex space-x-2 items-center"), Th("Dienstag"), Th("Mittwoch"), Th("Donnerstag"), Th("Freitag")),
+        days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"]
+        return Div(Table(
+            Tr(
+                *[Th(
+                    Div(
+                        Span(day),
+                        A(Img(src="/static/icons8-essen-90-inverted.png", cls="w-6"), onclick=f"modal{weekday}.show()"),
+                        cls="flex space-x-2 items-center"
+                    )
+                ) for weekday, day in enumerate(days)]
+            ),
             *[row for row in self.rows if row.used],
             cls="p-4",
+        ),
+            LazyFoodLoader(self.monday),
             id="stundenplan"
         )
 
@@ -104,16 +124,23 @@ def TableEntry(appointment: Appointment, rowspan=1):
 
 
 class FoodModal:
-    def __init__(self, listings: list):
+    def __init__(self, date: date, listings: list):
+        self.date = date
         self.listings = listings
     def __ft__(self):
-        return Dialog(
-            Form(Div(Div(H2("Speiseplan", cls="text-2xl font-bold"), Button("close", method="close"), cls="flex justify-between items-center"), Div(
+        return Dialog(Form(
+                Div(
+                    Div(
+                        H2("Speiseplan", cls="text-2xl font-bold"),
+                        Button(Div("+", cls="transform rotate-45 translate-x-[1px]"), cls="w-8 h-8 flex items-center justify-center rounded-full border-2 border-white text-white shadow-none hover:bg-white hover:text-black", method="close"),
+                        cls="flex justify-between items-center"),
+                    Div(
                 *self.listings,
                 cls="grid grid-cols-2 gap-4 mt-4"), cls="bg-black opacity-80 p-6 rounded-lg shadow-lg max-w-2xl w-full"), method="dialog"),
-            id="modal",
+            id=f"modal{self.date.weekday()}",
             cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
         )
+
 
 class FoodListing:
     def __init__(self, name: str, img_src: str):
@@ -123,6 +150,7 @@ class FoodListing:
     def __ft__(self):
         return Div(Img(src=self.img_src, alt=self.name, cls="w-full h-48 object-cover rounded-lg"), H3(self.name, cls="text-lg font-semibold mt-2"), cls="text-center")
 
+
 def Navigation(weeks_from_now=0):
     return Div(
         Button("<", cls="w-6 h-8", onclick="modify_weeks_from_now(-1)"),
@@ -130,6 +158,19 @@ def Navigation(weeks_from_now=0):
         Button(">", cls="w-6 h-8", onclick="modify_weeks_from_now(1)"),
         cls="flex justify-center space-x-2"
     )
+
+
+def LazyFoodLoader(date: date):
+    return Div(
+            *[Div(
+                hx_get=f"/food?date_str={date.strftime('%Y-%m-%d')}",
+                hx_swap="outerHTML",
+                hx_trigger="load",
+                cls="hidden",
+            )
+                for date in [date + timedelta(days=i) for i in range(5)]
+            ]
+        )
 
 
 def time_diff_in_minutes(start: time, end: time):
