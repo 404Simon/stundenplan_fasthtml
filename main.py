@@ -1,8 +1,14 @@
+import os
 from fasthtml.common import *
 from datetime import time, date, datetime, timedelta
 from dataclasses import dataclass, field
 from models import Appointment
 import math
+from dualis import Dualis
+from functools import lru_cache
+
+dualis = Dualis(os.environ.get("DUALIS_USER"), os.environ.get("DUALIS_PASSWORD"))
+
 
 tailwind = Script(src="/static/tailwind345.js"),
 pico = Link(rel="stylesheet", href="/static/pico.min.css"),
@@ -24,12 +30,6 @@ async def post(weeks_from_now: int):
     print(f"Weeks from now: {weeks_from_now}")
     monday = date.today() - timedelta(days=date.today().weekday()) + timedelta(weeks=weeks_from_now)
     table = WeekTable(monday = monday)
-
-    # register dummy appointments
-    appointment = Appointment(date = monday + timedelta(days=1), start_time = time(8, 5), end_time = time(9), subject = "Mathematik", room = "A123")
-    table.register_appointment(appointment)
-    appointment2 = Appointment(date = monday + timedelta(days=2), start_time = time(8), end_time = time(10), subject = "Deutsch", room = "A123")
-    table.register_appointment(appointment2)
     return table
 
 
@@ -55,6 +55,12 @@ class WeekTable:
                 index = i
             ))
 
+
+        appointments = cached_get_time_table_week(self.monday)
+        for appointment in appointments:
+            self.register_appointment(appointment)
+
+
     def __ft__(self):
         days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"]
         return Div(Table(
@@ -64,7 +70,9 @@ class WeekTable:
                         Span(day),
                         A(Img(src="/static/icons8-essen-90-inverted.png", cls="w-6"), onclick=f"modal{weekday}.show()"),
                         cls="flex space-x-2 items-center"
-                    )
+                    ),
+                    Span((self.monday + timedelta(days=weekday)).strftime("%d.%m"), cls="italic text-sm"),
+                    cls="w-1/5"
                 ) for weekday, day in enumerate(days)]
             ),
             *[row for row in self.rows if row.used],
@@ -113,11 +121,11 @@ class TableRow:
 def TableEntry(appointment: Appointment, rowspan=1):
     return Td(
         Div(
-            Span(appointment.start_time.strftime("%H:%M"), cls="font-bold"),
+            Span(appointment.start_time.strftime("%H:%M")),
             Span(appointment.end_time.strftime(" - %H:%M")),
-            Span(appointment.subject, cls="block"),
+            Span(appointment.subject, cls="block text-lg"),
             Span(appointment.room, cls="block"),
-            cls="space-y-1",
+            cls="space-y-4",
         ),
         rowspan=rowspan
     )
@@ -175,6 +183,11 @@ def LazyFoodLoader(date: date):
 
 def time_diff_in_minutes(start: time, end: time):
     return start.hour * 60 + start.minute - end.hour * 60 - end.minute
+
+
+@lru_cache(maxsize=32)
+def cached_get_time_table_week(date: date):
+    return dualis.get_time_table_week(date)
 
 
 if __name__ == "__main__":
