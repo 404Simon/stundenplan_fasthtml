@@ -145,11 +145,20 @@ class TableEntry:
             return Td()
 
 
+@dataclass
+class FoodListing:
+    name: str
+    img_src: str
 
+    def __ft__(self):
+        return Div(Img(src=self.img_src, alt=self.name, cls="w-full h-48 object-cover rounded-lg"), H3(self.name, cls="text-lg font-semibold mt-2"), cls="text-center")
+
+
+@dataclass
 class FoodModal:
-    def __init__(self, date: date, listings: list):
-        self.date = date
-        self.listings = listings
+    date: date
+    listings: list[FoodListing]
+
     def __ft__(self):
         return Dialog(Form(
                 Div(
@@ -163,15 +172,6 @@ class FoodModal:
             id=f"modal{self.date.weekday()}",
             cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
         )
-
-
-class FoodListing:
-    def __init__(self, name: str, img_src: str):
-        self.name = name
-        self.img_src = img_src
-
-    def __ft__(self):
-        return Div(Img(src=self.img_src, alt=self.name, cls="w-full h-48 object-cover rounded-lg"), H3(self.name, cls="text-lg font-semibold mt-2"), cls="text-center")
 
 
 def Navigation(weeks_from_now=0):
