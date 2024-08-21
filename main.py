@@ -2,10 +2,11 @@ import os
 from fasthtml.common import *
 from datetime import time, date, datetime, timedelta
 from dataclasses import dataclass, field
-from models import Appointment
+from models import Appointment, TableEntryState
 import math
 from dualis import Dualis
 from functools import lru_cache
+
 
 dualis = Dualis(os.environ.get("DUALIS_USER"), os.environ.get("DUALIS_PASSWORD"))
 
@@ -90,19 +91,21 @@ class WeekTable:
         offsets.sort(key=lambda x: x[0])
         for _, row in offsets:
             weekday = appointment.date.weekday()
-            if row.entries[weekday] is not None and row.entries[weekday] == Td():
-                print(f"Registering appointment {appointment.subject} at {appointment.start_time} in row {row.index}")
+            if row.entries[weekday].state == TableEntryState.EMPTY:
+                row.entries[weekday].state = TableEntryState.FILLED
                 intended_span = math.ceil(time_diff_in_minutes(appointment.end_time, row.start_time) / self.row_minutes)
                 actual_span = intended_span
                 for i in range(1, int(intended_span)):
                     self.rows[row.index + i].used = True
-                    if self.rows[row.index + i].entries[weekday] == Td():
-                        self.rows[row.index + i].entries[weekday] = None
+                    if self.rows[row.index + i].entries[weekday].state == TableEntryState.EMPTY:
+                        self.rows[row.index + i].entries[weekday].state = TableEntryState.SPANNED
                     else:
                         actual_span = i
                         break
-                row.entries[weekday] = TableEntry(appointment, rowspan=actual_span)
+                row.entries[weekday].appointment = appointment
+                row.entries[weekday].rowspan = actual_span
                 row.used = True
+                print(f"Registering appointment {appointment.subject} at {appointment.start_time} in row {row.index} with span {actual_span}")
                 break
 
 
@@ -111,24 +114,36 @@ class TableRow:
     start_time: time
     end_time: time
     index: int
-    entries: list = field(default_factory=lambda: [Td() for _ in range(5)])
+    entries: list = field(default_factory=lambda: [TableEntry() for _ in range(5)])
     used: bool = False
 
     def __ft__(self):
         return Tr(*self.entries)
 
 
-def TableEntry(appointment: Appointment, rowspan=1):
-    return Td(
-        Div(
-            Span(appointment.start_time.strftime("%H:%M")),
-            Span(appointment.end_time.strftime(" - %H:%M")),
-            Span(appointment.subject, cls="block text-lg"),
-            Span(appointment.room, cls="block"),
-            cls="space-y-4",
-        ),
-        rowspan=rowspan
-    )
+@dataclass
+class TableEntry:
+    appointment: Union[Appointment, None] = None
+    rowspan: int = 1
+    state: TableEntryState = TableEntryState.EMPTY
+
+    def __ft__(self):
+        if self.state == TableEntryState.FILLED and self.appointment:
+            return Td(
+                Div(
+                    Span(self.appointment.start_time.strftime("%H:%M")),
+                    Span(self.appointment.end_time.strftime(" - %H:%M")),
+                    Span(self.appointment.subject, cls="block text-lg"),
+                    Span(self.appointment.room, cls="block"),
+                    cls="space-y-4",
+                ),
+                rowspan=self.rowspan
+            )
+        elif self.state == TableEntryState.SPANNED:
+            return None
+        else:
+            return Td()
+
 
 
 class FoodModal:
