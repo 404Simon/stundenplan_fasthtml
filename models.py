@@ -10,6 +10,13 @@ class Appointment:
     subject: str
     room: str
 
+@dataclass
+class SpeiseplanDay:
+    date: date
+    title: str
+    price: str
+    img: str|None
+
 
 class TableEntryState(Enum):
     EMPTY = 0

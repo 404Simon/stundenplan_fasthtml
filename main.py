@@ -1,3 +1,4 @@
+from functools import lru_cache
 import os
 from fasthtml.common import *
 from datetime import time, date, datetime, timedelta
@@ -5,7 +6,7 @@ from dataclasses import dataclass, field
 from models import Appointment, TableEntryState
 import math
 from dualis import Dualis
-from functools import lru_cache
+from speiseplan import get_speiseplan
 
 
 dualis = Dualis(os.environ.get("DUALIS_USER"), os.environ.get("DUALIS_PASSWORD"))
@@ -37,8 +38,9 @@ async def post(weeks_from_now: int):
 @rt("/food")
 async def get(date_str: str):
     date = datetime.strptime(date_str, "%Y-%m-%d").date()
-    dummy_listings = [FoodListing("Asia Noodles", "http://coming.soon"), FoodListing("Rumpsteak", "http://comming.soon")]
-    return FoodModal(date, dummy_listings)
+    speiseplan = get_speiseplan(date)
+    listings = [FoodListing(day.title, day.img if day.img else '') for day in speiseplan]
+    return FoodModal(date, listings)
 
 
 @dataclass
@@ -123,7 +125,7 @@ class TableRow:
 
 @dataclass
 class TableEntry:
-    appointment: Union[Appointment, None] = None
+    appointment: Appointment|None = None
     rowspan: int = 1
     state: TableEntryState = TableEntryState.EMPTY
 
@@ -163,12 +165,12 @@ class FoodModal:
         return Dialog(Form(
                 Div(
                     Div(
-                        H2("Speiseplan", cls="text-2xl font-bold"),
+                        H2(f"Speiseplan, {self.date.strftime('%d.%m.')}", cls="text-2xl font-bold"),
                         Button(Div("+", cls="transform rotate-45 translate-x-[1px]"), cls="w-8 h-8 flex items-center justify-center rounded-full border-2 border-white text-white shadow-none hover:bg-white hover:text-black", method="close"),
                         cls="flex justify-between items-center"),
                     Div(
                 *self.listings,
-                cls="grid grid-cols-2 gap-4 mt-4"), cls="bg-black opacity-80 p-6 rounded-lg shadow-lg max-w-2xl w-full"), method="dialog"),
+                cls="grid grid-cols-3 gap-4 mt-4"), cls="bg-black opacity-80 p-6 rounded-lg shadow-lg max-w-2xl w-full"), method="dialog"),
             id=f"modal{self.date.weekday()}",
             cls="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
         )
@@ -200,7 +202,7 @@ def time_diff_in_minutes(start: time, end: time):
     return start.hour * 60 + start.minute - end.hour * 60 - end.minute
 
 
-@lru_cache(maxsize=32)
+@lru_cache
 def cached_get_time_table_week(date: date):
     return dualis.get_time_table_week(date)
 
