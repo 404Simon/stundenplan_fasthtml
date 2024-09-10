@@ -28,7 +28,7 @@ document.addEventListener('keydown', function(e) {
         weeks.select();
     } else if (e.key === "Escape" || e.key == "q") {
         close_all_modals();
-    } else if (e.key >= '1' && e.key <= '5') {
+    } else if (e.key >= '1' && e.key <= '5' && document.activeElement.tagName != 'INPUT') {
         close_all_modals();
         var modal = document.getElementById('modal' + (parseInt(e.key) - 1));
         if (modal) {
