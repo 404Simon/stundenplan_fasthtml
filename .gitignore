@@ -1,5 +1,7 @@
 # Simons stuff
 .sesskey
+.DS_Store
+.envrc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
